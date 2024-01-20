@@ -9,9 +9,33 @@ import onnxruntime
 from onnxruntime.quantization import QuantType
 from onnxruntime.quantization.quantize import quantize_dynamic
 import sys
+import util
 
 CHECKPOINT = "./sam/sam_vit_h_4b8939.pth"
 MODEL_TYPE = "vit_h"
+
+
+def show_points(coords, labels, ax, marker_size=375):
+    pos_points = coords[labels == 1]
+    neg_points = coords[labels == 0]
+    ax.scatter(
+        pos_points[:, 0],
+        pos_points[:, 1],
+        color="green",
+        marker="*",
+        s=marker_size,
+        edgecolor="white",
+        linewidth=1.25,
+    )
+    ax.scatter(
+        neg_points[:, 0],
+        neg_points[:, 1],
+        color="red",
+        marker="*",
+        s=marker_size,
+        edgecolor="white",
+        linewidth=1.25,
+    )
 
 
 # output path must have file ext. np
@@ -26,6 +50,32 @@ def embed_image(input_path: str, output_path: str):
     predictor.set_image(image)
     image_embedding = predictor.get_image_embedding().cpu().numpy()
     np.save(output_path, image_embedding)
+
+
+def point_image(input_path, output_path):
+    sam = sam_model_registry[MODEL_TYPE](checkpoint=CHECKPOINT)
+    image = cv2.imread(input_path)
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    mask_generator = SamAutomaticMaskGenerator(sam)
+    # masks = mask_generator.generate(image)
+    # save_mask(masks)
+
+    predictor = SamPredictor(sam)
+    predictor.set_image(image)
+    input_point = np.array([[500, 500]])
+    input_label = np.array([1])
+    masks, scores, logits = predictor.predict(
+        point_coords=input_point,
+        point_labels=input_label,
+        multimask_output=True,
+    )
+    plt.figure(figsize=(10, 10))
+    plt.imshow(image)
+    show_points(input_point, input_label, plt.gca())
+    plt.axis("on")
+    plt.show()
+    # image_embedding = predictor.get_image_embedding().cpu().numpy()
+    # np.save(output_path, image_embedding)
 
 
 # onnx_model_path = None
@@ -100,3 +150,4 @@ if __name__ == "__main__":
     input_path = sys.argv[1]
     output_path = sys.argv[2]
     embed_image(input_path, output_path)
+    # point_image(input_path, output_path)
