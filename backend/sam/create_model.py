@@ -144,6 +144,7 @@ def mask_query(
         normalized_bw_image = (mask * 255).astype(np.uint8)
         rgb_image = np.stack([normalized_bw_image] * 3, axis=-1)
         mask = mask_to_original(image, rgb_image)
+        mask = crop_non_black_region(mask)
         # save_mask_img(mask, plt.gca(), "i")
         # mask_image = mask_img(mask)
         # mask = mask_to_original(image, mask_image)
@@ -174,13 +175,6 @@ def show_anns(anns):
         color_mask = np.concatenate([np.random.random(3), [0.35]])
         img[m] = color_mask
     ax.imshow(img)
-
-
-def matrix_reduce(image):
-    rows, cols = np.where(matrix == 1)
-    min_row, min_col = np.min(rows), np.min(cols)
-    max_row, max_col = np.max(rows), np.max(cols)
-    return matrix[min_row : max_row + 1, min_col : max_col + 1]
 
 
 def all_masks(img):
@@ -218,7 +212,7 @@ def crop_non_black_region(image):
     # Extract the portion of the image within the bounding box
     cropped_image = image[min_row : max_row + 1, min_col : max_col + 1]
 
-    return add_black_padding(cropped_image, 100)
+    return add_black_padding(cropped_image, 50)
 
 
 if __name__ == "__main__":
