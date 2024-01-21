@@ -9,10 +9,15 @@ import onnxruntime
 from onnxruntime.quantization import QuantType
 from onnxruntime.quantization.quantize import quantize_dynamic
 import sys
-import util
+import os
+from vision.mask_to_original import mask_to_original
 
 CHECKPOINT = "./sam/sam_vit_h_4b8939.pth"
 MODEL_TYPE = "vit_h"
+
+
+def load_model():
+    return sam_model_registry[MODEL_TYPE](checkpoint=CHECKPOINT)
 
 
 def show_points(coords, labels, ax, marker_size=375):
@@ -51,8 +56,7 @@ def embed_image(input_path: str, output_path: str):
 
 
 def save_mask_img(mask, ax, output):
-    print(mask.shape)
-    mask_image = mask_img(mask, ax, output)
+    mask_image = mask_img(mask)
     im = Image.fromarray(mask_image)
     im.save(output + ".jpeg")
     ax.imshow(mask_image)
@@ -67,7 +71,6 @@ def mask_img(mask):
 
 def show_mask(mask, ax, output):
     # color = np.array([30 / 255, 144 / 255, 255 / 255, 0.6])
-    print(mask.shape)
     h, w = mask.shape[-2:]
     mask_image = mask.reshape(h, w, 1)  # * color.reshape(1, 1, -1)
     ax.imshow(mask_image)
@@ -109,19 +112,27 @@ def point_image(input_path, output_path, x, y):
         # np.save(output_path, image_embedding)
 
 
-def mask_query(img_path, point) -> []:
+def mask_query(
+    img_path,
+    point,
+    model=None,
+) -> []:
     """
     img_path - path to the image
     point - cartesian coord query for the mask
     returns - array of np-arrays representative of images (JPEG)
     """
-    sam = sam_model_registry[MODEL_TYPE](checkpoint=CHECKPOINT)
-    image = cv2.imread(input_path)
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    if not model:
+        sam = sam_model_registry[MODEL_TYPE](checkpoint=CHECKPOINT)
+    else:
+        sam = model
+    assert os.path.isfile(img_path) == True
+    image = cv2.imread(img_path)
+    # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     mask_generator = SamAutomaticMaskGenerator(sam)
     predictor = SamPredictor(sam)
     predictor.set_image(image)
-    input_point = np.array([[point.x, point.y]])
+    input_point = np.array([[point[0], point[1]]])
     input_label = np.array([1])
     masks, scores, logits = predictor.predict(
         point_coords=input_point,
@@ -130,16 +141,104 @@ def mask_query(img_path, point) -> []:
     )
     mask_images = []
     for i, (mask, score) in enumerate(zip(masks, scores)):
-        # save_mask_img(mask, plt.gca(), output_path + "i")
-        mask_images.append(mask_img(mask))
+        normalized_bw_image = (mask * 255).astype(np.uint8)
+        rgb_image = np.stack([normalized_bw_image] * 3, axis=-1)
+        mask = mask_to_original(image, rgb_image)
+        # save_mask_img(mask, plt.gca(), "i")
+        # mask_image = mask_img(mask)
+        # mask = mask_to_original(image, mask_image)
+
+        # im = Image.fromarray((mask_img(mask)))
+        im = Image.fromarray(mask)
+        mask_images.append(im)
     return mask_images
+
+
+def show_anns(anns):
+    if len(anns) == 0:
+        return
+    sorted_anns = sorted(anns, key=(lambda x: x["area"]), reverse=True)
+    ax = plt.gca()
+    ax.set_autoscale_on(False)
+
+    img = np.ones(
+        (
+            sorted_anns[0]["segmentation"].shape[0],
+            sorted_anns[0]["segmentation"].shape[1],
+            4,
+        )
+    )
+    img[:, :, 3] = 0
+    for ann in sorted_anns:
+        m = ann["segmentation"]
+        color_mask = np.concatenate([np.random.random(3), [0.35]])
+        img[m] = color_mask
+    ax.imshow(img)
+
+
+def matrix_reduce(image):
+    rows, cols = np.where(matrix == 1)
+    min_row, min_col = np.min(rows), np.min(cols)
+    max_row, max_col = np.max(rows), np.max(cols)
+    return matrix[min_row : max_row + 1, min_col : max_col + 1]
+
+
+def all_masks(img):
+    sam = sam_model_registry[MODEL_TYPE](checkpoint=CHECKPOINT)
+    image = cv2.imread(input_path)
+    mask_generator = SamAutomaticMaskGenerator(sam)
+    masks = mask_generator.generate(image)
+    return masks
+
+
+def add_black_padding(image, padding_size):
+    # Pad the image with black pixels
+    padded_image = np.pad(
+        image,
+        ((padding_size, padding_size), (padding_size, padding_size), (0, 0)),
+        mode="constant",
+    )
+
+    return padded_image
+
+
+def crop_non_black_region(image):
+    # Find indices of non-black pixels
+    non_black_indices = np.any(image != [0, 0, 0], axis=-1)
+
+    # Check if there are any non-black pixels in the image
+    if not np.any(non_black_indices):
+        return np.array([])
+
+    # Calculate the bounding box
+    rows, cols = np.where(non_black_indices)
+    min_row, min_col = np.min(rows), np.min(cols)
+    max_row, max_col = np.max(rows), np.max(cols)
+
+    # Extract the portion of the image within the bounding box
+    cropped_image = image[min_row : max_row + 1, min_col : max_col + 1]
+
+    return add_black_padding(cropped_image, 100)
 
 
 if __name__ == "__main__":
     input_path = sys.argv[1]
     output_path = sys.argv[2]
+    mask_query(input_path, (100, 100))
+    # image = cv2.imread(input_path)
+    # plt.figure(figsize=(10, 10))
+    # embed_image(input_path, output_path)
+    # # show_points(input_point, input_label, plt.gca())
+    # plt.axis("on")
+    # image = crop_non_black_region(image)
+    # plt.imshow(image)
+    # plt.axis("off")
+    # masks = all_masks(image)
+    # show_anns(masks)
+    # plt.axis("off")
+    # plt.show()
 
-    embed_image(input_path, output_path)  # for embedding images
+    # embed_image(input_path, output_path)  # for embedding images
 
     # uncomment if you want to get only a point image
     # x = sys.argv[3]

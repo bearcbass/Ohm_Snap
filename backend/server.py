@@ -1,14 +1,24 @@
 import json
 from six.moves.urllib.request import urlopen
 from functools import wraps
+from PIL import Image
 
-from flask import Flask, redirect, request, jsonify, _request_ctx_stack, flash
-from flask_cors import cross_origin
+from flask import (
+    Flask,
+    redirect,
+    request,
+    jsonify,
+    _request_ctx_stack,
+    flash,
+    send_file,
+)
+from flask_cors import cross_origin, CORS
 
 from werkzeug.utils import secure_filename
 from jose import jwt
 
 import os
+from io import BytesIO
 from sam.create_model import embed_image, load_model
 from sam.create_model import mask_query
 
@@ -19,6 +29,7 @@ API_AUDIENCE = "https://ohm-snap-auth0.com"
 ALGORITHMS = ["RS256"]
 
 APP = Flask(__name__)
+CORS(APP)
 model = load_model()
 
 
@@ -208,6 +219,7 @@ def mask():
         if "image" not in request.files or "data" not in request.files:
             flash("No file part")
             return redirect(request.url)
+        print(request.files["data"])
         data = json.load(request.files["data"])
         image = request.files["image"]
         upload_file = image
@@ -223,30 +235,49 @@ def mask():
             return redirect(request.url)
         # save image, embed image
         if allowed_file(upload_file.filename):
-            request.get_json()
-            coords = request_data["coordinates"]
             point = (int(coordinates["x"]), int(coordinates["y"]))
             filename = secure_filename(upload_file.filename)
             img_path = os.path.join("", filename)
             upload_file.save(img_path)
             stripped = filename.rsplit(".", 1)[0]
-            mask_img_query(
-                img_path,
-                point,
-            )
+            mask_images = mask_query(img_path, point, model)
             # embed_image(img_path, stripped + ".npy")
             # save to mongodb
-            return "Success"
-            # return redirect(url_for("uploaded_file", filename=filename))
-    # return """
-    # <!doctype html>
-    # <title>Upload new File</title>
-    # <h1>Upload new File</h1>
-    # <form method=post enctype=multipart/form-data>
-    #   <input type=file name=file>
-    #   <input type=submit value=Upload>
-    # </form>
-    # """
+            length = len(mask_images)
+            im = mask_images[1]
+            bytes_io = BytesIO()
+            im.save(bytes_io, "JPEG")
+            bytes_io.seek(0)
+            return send_file(bytes_io, mimetype="image/JPEG")
+        # return redirect(url_for("uploaded_file", filename=filename))
+
+
+# @APP.route("/band_masks", methods=["POST", "GET"])
+# def mask():
+#     if request.method == "POST":
+#         if "image" not in request.files:
+#             flash("No file part")
+#             return redirect(request.url)
+#         image = request.files["image"]
+#         upload_file = image
+#         if upload_file.filename == "":
+#             flash("No selected file")
+#             return redirect(request.url)
+#         # save image, embed image
+#         if allowed_file(upload_file.filename):
+#             request.get_json()
+#             filename = secure_filename(upload_file.filename)
+#             img_path = os.path.join("", filename)
+#             upload_file.save(img_path)
+#             stripped = filename.rsplit(".", 1)[0]
+#             mask_img_query(
+#                 img_path,
+#                 point,
+#             )
+#             # embed_image(img_path, stripped + ".npy")
+#             # save to mongodb
+#             return "Success"
+#             # return redirect(url_for("uploaded_file", filename=filename))
 
 
 @APP.route("/image", methods=["GET", "POST"])

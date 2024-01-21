@@ -11,8 +11,8 @@ export default function Home() {
         quantity={500}
         staticity={100}
       />
-      <Navbar>
-        <Link href='/api/auth/login'>Login</Link>
+      <Navbar header="">
+        <Link href='/api/auth/login?returnTo=/dashboard'>Login</Link>
       </Navbar>
       <div>
       </div>

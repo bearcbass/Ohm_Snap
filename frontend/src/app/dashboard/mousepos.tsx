@@ -46,7 +46,7 @@ const MousePositionComponent: React.FC<MousePositionComponentProps> = ({imageSrc
     };
   }, [imageSrc]);
 
-  return <canvas ref={canvasRef} width={800} height={600} />;
+  return <canvas ref={canvasRef} width={500} height={400} />;
 };
 
 export default MousePositionComponent;
