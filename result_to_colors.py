@@ -83,34 +83,3 @@ cv2.waitKey(0)
 cv2.destroyAllWindows()
 
 print(color_vector)
-
-
-"""
-import cv2
-import numpy as np
-
-# Load the result image
-result_image = cv2.imread('result_image.jpg')
-
-# Define HSV color range for red
-lower_red = np.array([0, 100, 100])  # Lower bound for red hue
-upper_red = np.array([10, 255, 255])  # Upper bound for red hue
-
-# Convert image to HSV
-result_hsv = cv2.cvtColor(result_image, cv2.COLOR_BGR2HSV)
-
-# Create binary mask for red
-red_mask = cv2.inRange(result_hsv, lower_red, upper_red)
-
-# Extract red color band by applying mask to the original image
-red_band = cv2.bitwise_and(result_image, result_image, mask=red_mask)
-
-# Get the unique colors in the red color band
-unique_colors_red = np.unique(red_band.reshape(-1, red_band.shape[2]), axis=0)
-
-# Save the extracted red color band
-cv2.imwrite('red_band.jpg', red_band)
-
-# Print the unique colors as a numpy vector
-print("Red Color Vector:", unique_colors_red.flatten())
-"""
