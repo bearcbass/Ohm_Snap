@@ -2,14 +2,15 @@ import json
 from six.moves.urllib.request import urlopen
 from functools import wraps
 
-from flask import Flask, redirect, request, jsonify, _request_ctx_stack
+from flask import Flask, redirect, request, jsonify, _request_ctx_stack, flash
 from flask_cors import cross_origin
 
 from werkzeug.utils import secure_filename
 from jose import jwt
 
 import os
-from sam.create_model import embed_image
+from sam.create_model import embed_image, load_model
+from sam.create_model import mask_query
 
 # SAM
 
@@ -18,6 +19,7 @@ API_AUDIENCE = "https://ohm-snap-auth0.com"
 ALGORITHMS = ["RS256"]
 
 APP = Flask(__name__)
+model = load_model()
 
 
 # Error handler
@@ -200,6 +202,53 @@ def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
+@APP.route("/mask", methods=["POST", "GET"])
+def mask():
+    if request.method == "POST":
+        if "image" not in request.files or "data" not in request.files:
+            flash("No file part")
+            return redirect(request.url)
+        data = json.load(request.files["data"])
+        image = request.files["image"]
+        upload_file = image
+        if upload_file.filename == "":
+            flash("No selected file")
+            return redirect(request.url)
+        if "coordinates" not in data:
+            flash("No selected file")
+            return redirect(request.url)
+        coordinates = data["coordinates"]
+        if "x" not in coordinates or "y" not in coordinates:
+            flash("Json data incorrect")
+            return redirect(request.url)
+        # save image, embed image
+        if allowed_file(upload_file.filename):
+            request.get_json()
+            coords = request_data["coordinates"]
+            point = (int(coordinates["x"]), int(coordinates["y"]))
+            filename = secure_filename(upload_file.filename)
+            img_path = os.path.join("", filename)
+            upload_file.save(img_path)
+            stripped = filename.rsplit(".", 1)[0]
+            mask_img_query(
+                img_path,
+                point,
+            )
+            # embed_image(img_path, stripped + ".npy")
+            # save to mongodb
+            return "Success"
+            # return redirect(url_for("uploaded_file", filename=filename))
+    # return """
+    # <!doctype html>
+    # <title>Upload new File</title>
+    # <h1>Upload new File</h1>
+    # <form method=post enctype=multipart/form-data>
+    #   <input type=file name=file>
+    #   <input type=submit value=Upload>
+    # </form>
+    # """
+
+
 @APP.route("/image", methods=["GET", "POST"])
 # @requires_auth
 def image():
@@ -219,6 +268,7 @@ def image():
             filename = secure_filename(upload_file.filename)
             img_path = os.path.join("", filename)
             upload_file.save(img_path)
+            # TODO eventually we need the color band function here
             stripped = filename.rsplit(".", 1)[0]
             embed_image(img_path, stripped + ".npy")
             # save to mongodb
