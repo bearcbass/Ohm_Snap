@@ -19,21 +19,22 @@ const config: Config = {
 				display: ["var(--font-calsans)"],
 			},
       animation: {
-        "fade-in": "fade-in 2s ease-in-out forwards"
+        "fade-in": "fade-in 2s ease-in-out forwards",
+        "bounce" : "bounce 4s ease-in-out forwards"
       },
       keyframes: {
         "fade-in": {
           "0%": {
-            opacity: "0%"
+            opacity: "0%",
           },
           "70%": {
-            opacity: "0%"
+            opacity: "0%",
           },
           "100%": {
-            opacity: "100%"
+            opacity: "100%",
           }
-        }
-      }
+        },
+      },
     },
   },
   plugins: [

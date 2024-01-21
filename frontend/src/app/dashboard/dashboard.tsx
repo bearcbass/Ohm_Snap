@@ -12,8 +12,8 @@ import MousePositionComponent from "./mousepos";
 import { useUser } from '@auth0/nextjs-auth0/client';
 
 export default function Dashboard() {
-    const [resultImage, setResultImage] = React.useState<string>('/public/Untitled.jpeg');
-    const [image, setImage] = React.useState<string | null>('/public/Untitled.jpeg');
+    const [resultImage, setResultImage] = React.useState<string>('');
+    const [image, setImage] = React.useState<string | null>('');
     const [file, setFile] = React.useState<File>()
     const [coords, setCoords] = React.useState<[number, number]>([0, 0]);
     const updateCoordinates = (x: number, y: number) => { setCoords([x, y]) }
@@ -54,22 +54,28 @@ export default function Dashboard() {
     }
 
     const {user, error, isLoading} = useUser();
-
+    const control_style = "border-2 rounded-md p-1 px-2 m-2"
     return (
         <div className="flex flex-col items-center justify-center w-screen h-screen overflow-hidden bg-gradient-to-tl from-black via-zinc-600/20 to-black">
             <Navbar header={user ? `Welcome ${user?.name}`: ''}>
-                <Link href='/api/auth/login?redirectTo=/'>Logout</Link>
+                <Link href='/api/auth/login'>Logout</Link>
             </Navbar>
-            <div className="bg-orange-100 h-1/2 w-1/2">
+            <div>
+
+            </div>
+            <div className="border-4 border-white rounded animate-fade-in bg-orange-100 h-1/2 w-1/2">
                 <MousePositionComponent imageSrc={image} setCoords={updateCoordinates} />
             </div>
-            <form className="py-10" onSubmit={(e: FormEvent<HTMLFormElement>) => {
+            <div className="flex justify-content items-center">
+            <form className="animate-fade-in py-10" onSubmit={(e: FormEvent<HTMLFormElement>) => {
                 submitForm(e)
             }}>
-                <input className="border-2 rounded-md p-1 px-2 m-2" type="file" onChange={handleChange} name="image" />
-                <input className="border-2 rounded-md p-1 px-2 m-2" type="submit" />
+                <input className={control_style} type="file" onChange={handleChange} name="image" />
+                <input className={control_style} type="submit" />
+                {/* <button className={control_style} onClick={}>Clear</button> */}
             </form>
-            <img className="bg-white" src={resultImage} />
+            </div>
+            <img className="animate-fade-in" src={resultImage} />
             {/* <div className="mt-20 p-2 flex flex-col justify-center items-center border-solid border-2 rounded-md border-white h-[90%] w-[90%]">
 
                 <div className="h-1/2 w-1/2 flex item-center justify-content">

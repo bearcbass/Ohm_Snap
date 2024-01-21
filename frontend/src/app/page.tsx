@@ -16,7 +16,7 @@ export default function Home() {
       </Navbar>
       <div>
       </div>
-      <h1 className="bg-white absolute top-1/2 left-1/2 z-10 p-1 bg-clip-text text-transparent white duration-100 cursor-default font-display text-3xl md:text-5xl xl:text-7xl animate-fade-in whitespace-nowrap transform -translate-x-1/2 -translate-y-1/2">
+      <h1 className="border-4 bg-white absolute top-1/2 left-1/2 z-10 p-2 bg-clip-text text-transparent white duration-100 cursor-default font-display text-3xl md:text-5xl xl:text-7xl animate-fade-in whitespace-nowrap transform -translate-x-1/2 -translate-y-1/2">
         Ohm Snap!
       </h1>
       </div>
