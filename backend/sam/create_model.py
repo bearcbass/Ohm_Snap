@@ -9,10 +9,15 @@ import onnxruntime
 from onnxruntime.quantization import QuantType
 from onnxruntime.quantization.quantize import quantize_dynamic
 import sys
-import util
+
+# import util
 
 CHECKPOINT = "./sam/sam_vit_h_4b8939.pth"
 MODEL_TYPE = "vit_h"
+
+
+def load_model():
+    return sam_model_registry[MODEL_TYPE](checkpoint=CHECKPOINT)
 
 
 def show_points(coords, labels, ax, marker_size=375):
@@ -39,8 +44,7 @@ def show_points(coords, labels, ax, marker_size=375):
 
 
 # output path must have file ext. np
-def embed_image(input_path: str, output_path: str):
-    sam = sam_model_registry[MODEL_TYPE](checkpoint=CHECKPOINT)
+def embed_image(sam, input_path: str, output_path: str):
     image = cv2.imread(input_path)
     mask_generator = SamAutomaticMaskGenerator(sam)
     masks = mask_generator.generate(image)
@@ -52,7 +56,7 @@ def embed_image(input_path: str, output_path: str):
 
 def save_mask_img(mask, ax, output):
     print(mask.shape)
-    mask_image = mask_img(mask, ax, output)
+    mask_image = mask_img(mask)
     im = Image.fromarray(mask_image)
     im.save(output + ".jpeg")
     ax.imshow(mask_image)
@@ -73,14 +77,17 @@ def show_mask(mask, ax, output):
     ax.imshow(mask_image)
 
 
-def point_image(input_path, output_path, x, y):
-    sam = sam_model_registry[MODEL_TYPE](checkpoint=CHECKPOINT)
+def point_image(sam, input_path, output_path, x, y):
     image = cv2.imread(input_path)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     mask_generator = SamAutomaticMaskGenerator(sam)
     # masks = mask_generator.generate(image)
     # save_mask(masks)
     # masks = mask_generator.generate(image)
+    predictor = SamPredictor(sam)
+    predictor.set_image(image)
+    input_point = np.array([[x, y]])
+    input_label = np.array([1])
     masks, scores, logits = predictor.predict(
         point_coords=input_point,
         point_labels=input_label,
@@ -101,6 +108,7 @@ def point_image(input_path, output_path, x, y):
         plt.figure(figsize=(10, 10))
         # plt.imshow(image)
         show_mask(mask, plt.gca(), output_path)
+        save_mask_img(mask, plt.gca(), output_path)
         show_points(input_point, input_label, plt.gca())
         plt.title(f"Mask {i+1}, Score: {score:.3f}", fontsize=18)
         plt.axis("off")
@@ -109,7 +117,14 @@ def point_image(input_path, output_path, x, y):
         # np.save(output_path, image_embedding)
 
 
-def mask_query(img_path, point) -> []:
+# may be able to just path the image data here
+def mask_img_query(img_path, point, output):
+    for idx, mask_image in enumerate(mask_query(img_path, point)):
+        im = Image.fromarray(mask_image)
+        im.save(output + f"{i}" + ".jpeg")
+
+
+def mask_query(sam, img_path, point) -> []:
     """
     img_path - path to the image
     point - cartesian coord query for the mask
@@ -121,7 +136,7 @@ def mask_query(img_path, point) -> []:
     mask_generator = SamAutomaticMaskGenerator(sam)
     predictor = SamPredictor(sam)
     predictor.set_image(image)
-    input_point = np.array([[point.x, point.y]])
+    input_point = np.array([point[0], point[1]])
     input_label = np.array([1])
     masks, scores, logits = predictor.predict(
         point_coords=input_point,
@@ -136,12 +151,13 @@ def mask_query(img_path, point) -> []:
 
 
 if __name__ == "__main__":
+    sam = load_model()
     input_path = sys.argv[1]
     output_path = sys.argv[2]
 
-    embed_image(input_path, output_path)  # for embedding images
+    # embed_image(input_path, output_path)  # for embedding images
 
     # uncomment if you want to get only a point image
-    # x = sys.argv[3]
-    # y = sys.argv[4]
-    # point_image(input_path, output_path, x, y)
+    x = int(sys.argv[3])
+    y = int(sys.argv[4])
+    point_image(sam, input_path, output_path, x, y)
